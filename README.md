@@ -85,6 +85,10 @@ cd frontend && npm run typecheck && npm test && npm run build
 docker compose config
 ```
 
+Для браузерного E2E-сценария занятие должно быть активно, а backend и frontend
+запущены. После установки Chromium (`npx playwright install chromium`) выполните
+`cd frontend && npm run test:e2e`.
+
 ## Структура
 
 - `backend/app/routers` — документированные REST и WebSocket endpoints.

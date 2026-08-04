@@ -8,7 +8,9 @@ class Settings(BaseSettings):
     jwt_secret: str = "development-only-change-me"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 1440
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    cors_origins: str = (
+        "http://localhost:5173,http://127.0.0.1:4173,http://localhost:3000"
+    )
     seed_date: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

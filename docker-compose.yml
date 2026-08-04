@@ -20,7 +20,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-attendpro}:${POSTGRES_PASSWORD:-attendpro}@db:5432/${POSTGRES_DB:-attendpro}
       JWT_SECRET: ${JWT_SECRET:-development-only-change-me}
-      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://127.0.0.1:4173
       SEED_DATE: ${SEED_DATE:-}
     command: ["sh", "-c", "alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
     depends_on:
