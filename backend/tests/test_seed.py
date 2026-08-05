@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import selectinload
 
@@ -16,6 +18,16 @@ async def test_seed_is_idempotent_and_creates_complete_demo_data():
         await db.commit()
 
     await seed()
+    async with SessionLocal() as db:
+        first_schedule = await db.scalar(
+            select(Schedule).where(
+                Schedule.short_name == "Разработка интерфейса пользователя."
+            )
+        )
+        assert first_schedule is not None
+        first_schedule.start_time += timedelta(minutes=30)
+        await db.commit()
+
     await seed()
 
     async with SessionLocal() as db:

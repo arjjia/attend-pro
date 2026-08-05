@@ -125,8 +125,8 @@ async def seed() -> None:
                 select(Schedule)
                 .options(selectinload(Schedule.lecturers))
                 .where(
+                    Schedule.module == spec["module"],
                     Schedule.short_name == spec["short_name"],
-                    Schedule.start_time == spec["start_time"],
                     Schedule.group == GROUP,
                 )
             )

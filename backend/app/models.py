@@ -35,6 +35,11 @@ class ScheduleLecturer(Base):
 
 class Schedule(Base):
     __tablename__ = "schedule"
+    __table_args__ = (
+        UniqueConstraint(
+            "module", "short_name", "group", name="uq_schedule_module_short_name_group"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     module: Mapped[str] = mapped_column(String(255))

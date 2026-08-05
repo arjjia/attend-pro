@@ -63,12 +63,10 @@ Backend:
 ```bash
 cd backend
 cp .env.example .env
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -e '.[test]'
-alembic upgrade head
-python -m app.seed
-uvicorn app.main:app --reload
+uv sync --extra test --locked
+uv run --locked alembic upgrade head
+uv run --locked python -m app.seed
+uv run --locked uvicorn app.main:app --reload
 ```
 
 Frontend в другом терминале:
@@ -83,7 +81,7 @@ npm run dev
 ## Проверки
 
 ```bash
-cd backend && .venv/bin/pytest -q
+cd backend && uv run --extra test --locked pytest -q
 cd frontend && npm run typecheck && npm test && npm run build
 docker compose config
 ```

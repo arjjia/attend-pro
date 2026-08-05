@@ -101,6 +101,7 @@ Seed создаёт два занятия на текущую дату в Тюм
 | Назначение | Технология |
 | --- | --- |
 | Язык | Python 3.10+ |
+| Package manager | uv 0.9.16, `uv.lock` |
 | HTTP API | FastAPI |
 | ASGI server | Uvicorn |
 | ORM | SQLAlchemy 2 async |
@@ -149,6 +150,9 @@ attend-pro/
 │   │   ├── security.py    JWT и bcrypt
 │   │   └── seed.py        тестовые данные
 │   ├── migrations/        Alembic migration
+│   ├── pyproject.toml      зависимости и настройки Python-проекта
+│   ├── uv.lock             зафиксированное дерево Python-зависимостей
+│   ├── .python-version     локальная версия Python 3.12 для uv
 │   └── tests/             backend integration tests
 ├── frontend/
 │   ├── e2e/               Playwright-сценарий
@@ -190,8 +194,8 @@ docker compose ps
 
 1. Запуск PostgreSQL.
 2. Ожидание healthcheck базы данных.
-3. `alembic upgrade head`.
-4. `python -m app.seed`.
+3. `uv run --locked alembic upgrade head`.
+4. `uv run --locked python -m app.seed`.
 5. Запуск Uvicorn.
 6. Сборка React и запуск nginx после готовности backend.
 
@@ -221,6 +225,8 @@ docker compose down -v
 
 Этот способ удобен для разработки с hot reload.
 
+Для локального backend установите `uv`: <https://docs.astral.sh/uv/>.
+
 ### Терминал 1: база данных
 
 ```bash
@@ -232,12 +238,10 @@ docker compose up db
 ```bash
 cd backend
 cp .env.example .env
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -e '.[test]'
-alembic upgrade head
-python -m app.seed
-uvicorn app.main:app --reload
+uv sync --extra test --locked
+uv run --locked alembic upgrade head
+uv run --locked python -m app.seed
+uv run --locked uvicorn app.main:app --reload
 ```
 
 Backend будет доступен на <http://localhost:8000>.
@@ -351,16 +355,17 @@ docker compose up -d --build
 
 ```bash
 cd backend
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -e '.[test]'
+uv sync --extra test --locked
 ```
+
+`uv` автоматически установит Python 3.12 из `.python-version`, если совместимый
+интерпретатор отсутствует, создаст `.venv` и синхронизирует его с `uv.lock`.
 
 ### Полный набор
 
 ```bash
-.venv/bin/python -m compileall -q app migrations tests
-.venv/bin/python -m pytest -q
+uv run --extra test --locked python -m compileall -q app migrations tests
+uv run --extra test --locked pytest -q
 ```
 
 Текущая база проверок: 27 тестов.
@@ -368,19 +373,19 @@ pip install -e '.[test]'
 ### Подробный вывод
 
 ```bash
-.venv/bin/python -m pytest -vv
+uv run --extra test --locked pytest -vv
 ```
 
 ### Проверка отдельных областей
 
 ```bash
-.venv/bin/python -m pytest -q tests/test_auth.py
-.venv/bin/python -m pytest -q tests/test_schedule.py
-.venv/bin/python -m pytest -q tests/test_lecturer.py
-.venv/bin/python -m pytest -q tests/test_attendance.py
-.venv/bin/python -m pytest -q tests/test_websocket.py
-.venv/bin/python -m pytest -q tests/test_seed.py
-.venv/bin/python -m pytest -q tests/test_schema.py
+uv run --extra test --locked pytest -q tests/test_auth.py
+uv run --extra test --locked pytest -q tests/test_schedule.py
+uv run --extra test --locked pytest -q tests/test_lecturer.py
+uv run --extra test --locked pytest -q tests/test_attendance.py
+uv run --extra test --locked pytest -q tests/test_websocket.py
+uv run --extra test --locked pytest -q tests/test_seed.py
+uv run --extra test --locked pytest -q tests/test_schema.py
 ```
 
 Backend-тесты используют отдельную временную SQLite БД через `aiosqlite` и не
@@ -404,8 +409,31 @@ Backend-тесты используют отдельную временную SQ
 - WebSocket-авторизация и broadcast;
 - повторный безопасный запуск seed.
 
-Предупреждения `pytest-asyncio` при запуске на Python 3.14 относятся к будущим
-изменениям asyncio. Проект заявляет Python 3.10+ и в Docker использует 3.12.
+### Работа с Python-зависимостями
+
+Добавить runtime-зависимость:
+
+```bash
+cd backend
+uv add package-name
+```
+
+Добавить зависимость в optional extra для тестов:
+
+```bash
+uv add --optional test package-name
+```
+
+Обновить разрешённые версии зависимостей:
+
+```bash
+uv lock --upgrade
+uv sync --extra test --locked
+```
+
+После изменения зависимостей необходимо коммитить вместе `pyproject.toml` и
+`uv.lock`. Флаг `--locked` запрещает незаметное изменение lock-файла во время
+сборки или тестирования.
 
 ## 11. Автоматические frontend-тесты
 
@@ -715,8 +743,8 @@ ORDER BY a.timestamp;
 
 ```bash
 cd backend
-.venv/bin/alembic current
-.venv/bin/alembic history
+uv run --locked alembic current
+uv run --locked alembic history
 ```
 
 ### Чистая миграция в Docker
@@ -724,14 +752,14 @@ cd backend
 ```bash
 docker compose down -v
 docker compose up -d db
-docker compose run --rm backend alembic upgrade head
+docker compose run --rm backend uv run --locked alembic upgrade head
 ```
 
 ### Идемпотентность seed
 
 ```bash
-docker compose run --rm backend python -m app.seed
-docker compose run --rm backend python -m app.seed
+docker compose run --rm backend uv run --locked python -m app.seed
+docker compose run --rm backend uv run --locked python -m app.seed
 ```
 
 После двух запусков должны остаться 4 пользователя и 2 занятия без дубликатов.
@@ -845,6 +873,7 @@ Seed идентифицирует занятие по названию, врем
 
 | Проверка | Результат |
 | --- | --- |
+| `uv lock --check` | успешно |
 | Backend compileall | успешно |
 | Backend pytest | 27 passed |
 | Frontend TypeScript | успешно |
@@ -853,7 +882,11 @@ Seed идентифицирует занятие по названию, врем
 | Playwright full attendance flow | успешно |
 | Повторный Playwright запуск на той же БД | успешно |
 | Alembic upgrade на чистой БД | успешно |
-| Идемпотентный seed | успешно |
+| Идемпотентный seed после изменения времени | успешно на SQLite и PostgreSQL |
 | Docker Compose config validation | успешно |
+| Backend Docker build без cache | успешно |
+| Полный Docker Compose stack | PostgreSQL и backend healthy, frontend running |
+| API напрямую и через nginx | HTTP 200 |
 
-Фактический Docker-стек необходимо проверять при запущенном Docker daemon.
+Последняя полная проверка выполнена на Docker Desktop с PostgreSQL,
+production nginx frontend и backend-образом, собранным через `uv 0.9.16`.

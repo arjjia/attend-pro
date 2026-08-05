@@ -10,10 +10,13 @@ async function login(page: Page, email: string) {
 test("lecturer starts attendance and receives a student mark", async ({ browser, page }) => {
   await login(page, "lecturer@test.ru");
   await expect(page.getByRole("heading", { name: "Расписание преподавателя" })).toBeVisible();
+  const classCard = page.getByRole("article").filter({
+    hasText: "Разработка интерфейса пользователя. Практическое занятие",
+  });
 
   const [widget] = await Promise.all([
     page.waitForEvent("popup"),
-    page.getByRole("button", { name: /Начать занятие|Открыть виджет/ }).click(),
+    classCard.getByRole("button", { name: /Начать занятие|Открыть виджет/ }).click(),
   ]);
   const code = widget.locator(".giant-code");
   await expect(code).toHaveText(/^\d{6}$/);

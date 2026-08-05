@@ -51,6 +51,9 @@ def upgrade() -> None:
         sa.Column("attendance_started_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("attendance_finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("exit_enabled", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.UniqueConstraint(
+            "module", "short_name", "group", name="uq_schedule_module_short_name_group"
+        ),
     )
     op.create_index("ix_schedule_group", "schedule", ["group"])
     op.create_index("ix_schedule_start_time", "schedule", ["start_time"])
