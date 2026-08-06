@@ -1,0 +1,89 @@
+erDiagram
+    USERS ||--o{ LESSONS : "teacher_id"
+    USERS ||--o{ LESSON_MEMBERS : "student_id"
+    LESSONS ||--o{ LESSON_MEMBERS : "lesson_id"
+    USERS ||--o{ DEVICE_CREDENTIALS : "user_id"
+    LESSONS ||--o{ LESSON_PERMITS : "lesson_id"
+    DEVICE_CREDENTIALS ||--o{ LESSON_PERMITS : "teacher_device_credential_id"
+    LESSONS ||--o{ ATTENDANCE_CLAIMS : "lesson_id"
+    USERS ||--o{ ATTENDANCE_CLAIMS : "student_id"
+    DEVICE_CREDENTIALS ||--o{ ATTENDANCE_CLAIMS : "student_device_credential_id"
+    ATTENDANCE_CLAIMS ||--|| ATTENDANCE_DECISIONS : "claim_id"
+    USERS ||--o{ AUDIT_EVENTS : "actor_user_id (logical)"
+
+    USERS {
+        string id PK
+        string email UK
+        string role
+        string full_name
+        string group_name
+        boolean active
+    }
+    LESSONS {
+        string id PK
+        string course_code
+        string title
+        string kind
+        string group_name
+        string room
+        datetime starts_at
+        datetime ends_at
+        string teacher_id FK
+        boolean test_managed
+    }
+    LESSON_MEMBERS {
+        string lesson_id PK,FK
+        string student_id PK,FK
+    }
+    DEVICE_CREDENTIALS {
+        string id PK
+        string device_id UK
+        string user_id FK
+        json public_jwk
+        datetime issued_at
+        datetime expires_at
+        datetime revoked_at
+        json signed_payload
+        text portal_signature
+        string portal_key_id
+    }
+    LESSON_PERMITS {
+        string id PK
+        string lesson_id FK
+        string teacher_device_credential_id FK
+        datetime not_before
+        datetime expires_at
+        datetime revoked_at
+        json signed_payload
+        text portal_signature
+    }
+    ATTENDANCE_CLAIMS {
+        string id PK
+        string challenge_id
+        string lesson_id FK
+        string student_id FK
+        string student_device_credential_id FK
+        string kind
+        datetime captured_at
+        datetime received_at
+        json proof
+        string status
+        string reason_code
+        string giper_document_id
+    }
+    ATTENDANCE_DECISIONS {
+        string id PK
+        string claim_id UK,FK
+        datetime decided_at
+        json signed_payload
+        text portal_signature
+        string portal_key_id
+    }
+    AUDIT_EVENTS {
+        string id PK
+        datetime occurred_at
+        string actor_user_id
+        string event_type
+        string subject_id
+        json details
+    }

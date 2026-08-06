@@ -1,0 +1,84 @@
+flowchart TB
+    subgraph USERS["👤 Пользователи"]
+        direction LR
+        TEACHER["Браузер преподавателя<br/>Показ QR ENTRY / EXIT"]
+        STUDENT["Браузер студента<br/>Сканирование и подпись"]
+    end
+
+    subgraph FRONTEND["🖥️ frontend :3000 — клиентский контур"]
+        direction LR
+        NGINX["frontend/nginx.conf<br/>Web/PWA и /api proxy"]
+        MOL["frontend/attend/pro<br/>$mol SPA/PWA<br/>app.view.*, crypto, store, giper"]
+        SW["$mol_offline<br/>Service Worker<br/>application shell"]
+        IDB["attend-pro-v1 / IndexedDB<br/>Локальное хранилище<br/>Meta, Devices, Permits, Pending, Decisions"]
+        GIPER["frontend/attend/pro/giper<br/>Secondary evidence adapter<br/>private Land, feature flag"]
+        LEGACY["frontend/src<br/>React-исходники прототипа<br/>не входят в текущую сборку"]
+    end
+
+    subgraph BACKEND["🧠 backend :8000 — Portal API"]
+        direction LR
+        API["app/routers/api.py<br/>HTTP API и mock SSO<br/>auth, devices, schedule, permits, sync"]
+        PROOFS["app/services/proofs.py<br/>Проверка proof<br/>цепочка подписей, роли, время, roster"]
+        SECURITY["app/security.py<br/>Криптографическое ядро<br/>RFC 8785, ES256, portal signer"]
+        MODELS["app/models.py, app/schemas.py<br/>ORM и wire-схемы<br/>8 таблиц, SignedEnvelope, ClaimProof"]
+        SEED["app/seed.py<br/>Тестовые данные<br/>1 преподаватель, 3 студента, 2 пары"]
+        MIGRATIONS["migrations/versions<br/>Alembic-схема<br/>0001_initial, 0002_signed_local_first"]
+    end
+
+    subgraph STORAGE["💾 Хранилища"]
+        direction LR
+        PG["db :5432 / PostgreSQL 17<br/>Официальный журнал<br/>authority, claims, decisions, audit"]
+        KEYVOL["portal_keys volume<br/>Постоянный ключ портала<br/>portal-private-key.pem"]
+        PGVOL["postgres_data volume<br/>Данные PostgreSQL<br/>переживают перезапуск"]
+        LAND["Giper Baza private Land<br/>Зашифрованная реплика<br/>Worker-host ещё не реализован"]
+    end
+
+    subgraph FUTURE["🌐 Целевые интеграции"]
+        direction LR
+        SSO["University SSO / OIDC · M1<br/>Доменная идентичность"]
+        MODEUS["Modeus / расписание · M1<br/>Занятия и состав групп"]
+        RELAY["Giper relay + Web Worker · M1<br/>Фоновая репликация Lands"]
+    end
+
+    TEACHER --> NGINX
+    STUDENT --> NGINX
+    NGINX --> MOL
+    MOL <--> SW
+    MOL <--> IDB
+    MOL -. "адаптер подключён; публикация выключена" .-> GIPER
+    GIPER -. "следующий этап" .-> LAND
+    NGINX -->|"/api/v1/*"| API
+    API --> PROOFS
+    PROOFS --> SECURITY
+    API --> MODELS
+    SEED --> MODELS
+    MIGRATIONS --> PG
+    MODELS <--> PG
+    SECURITY <--> KEYVOL
+    PG <--> PGVOL
+    TEACHER -->|"подписанный QR, 30 с"| STUDENT
+    STUDENT -->|"proof после возврата сети"| API
+    API -->|"подписанный PortalDecision"| STUDENT
+    SSO -. "production adapter" .-> API
+    MODEUS -. "production adapter" .-> API
+    LAND -.-> RELAY
+    LEGACY -. "не используется" .- MOL
+
+    classDef client fill:#ECEFF1,stroke:#546176,color:#17233C;
+    classDef interface fill:#E3F2FD,stroke:#1769E0,color:#17233C;
+    classDef service fill:#E8F5E9,stroke:#16A085,color:#17233C;
+    classDef module fill:#F1F8E9,stroke:#7B9B75,color:#17233C;
+    classDef storage fill:#FFEBEE,stroke:#B95C68,color:#17233C;
+    classDef bridge fill:#E0F7FA,stroke:#16A085,color:#17233C;
+    classDef future fill:#E8EAF6,stroke:#5965B8,color:#17233C,stroke-dasharray:5 4;
+    classDef blocked fill:#FFCDD2,stroke:#A93F4C,color:#17233C,stroke-dasharray:5 4;
+    classDef legacy fill:#F5F5F5,stroke:#8B919C,color:#546176,stroke-dasharray:4 4;
+
+    class TEACHER,STUDENT client;
+    class NGINX,MOL,SW interface;
+    class API service;
+    class PROOFS,SECURITY,MODELS,SEED,MIGRATIONS module;
+    class IDB,PG,KEYVOL,PGVOL,LAND storage;
+    class GIPER bridge;
+    class SSO,MODEUS,RELAY future;
+    class LEGACY legacy;

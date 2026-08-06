@@ -1,0 +1,39 @@
+flowchart TB
+    TITLE["Легенда текущей архитектуры AttendPro"]
+    CLIENT["👤 Клиент<br/>браузер преподавателя / студента"]
+    UI["🐳 Интерфейс<br/>nginx, $mol SPA/PWA, Service Worker"]
+    SERVICE["🐳 Микросервис<br/>FastAPI Portal API"]
+    MODULE["⚙️ Модуль сервиса<br/>proof verifier, security, ORM, seed, migrations"]
+    BRIDGE["🐳 Мост / адаптер<br/>Giper evidence adapter"]
+    STORAGE["🐳 Хранилище<br/>IndexedDB, PostgreSQL, volumes, private Land"]
+    FUTURE["🚀 Целевое развитие<br/>OIDC, Modeus, Giper relay + Web Worker"]
+    LEGACY["📜 Неактивный исходный контур<br/>frontend/src не входит в MAM-сборку"]
+
+    TITLE --> CLIENT
+    CLIENT --> UI
+    UI --> SERVICE
+    SERVICE --> MODULE
+    MODULE --> STORAGE
+    BRIDGE --> STORAGE
+    STORAGE --> FUTURE
+    FUTURE --> LEGACY
+
+    classDef title fill:#FFFFFF,stroke:#17233C,color:#17233C,stroke-width:2px;
+    classDef client fill:#ECEFF1,stroke:#546176,color:#17233C;
+    classDef interface fill:#E3F2FD,stroke:#1769E0,color:#17233C;
+    classDef service fill:#E8F5E9,stroke:#16A085,color:#17233C;
+    classDef module fill:#F1F8E9,stroke:#7B9B75,color:#17233C;
+    classDef bridge fill:#E0F7FA,stroke:#16A085,color:#17233C;
+    classDef storage fill:#FFEBEE,stroke:#B95C68,color:#17233C;
+    classDef future fill:#E8EAF6,stroke:#5965B8,color:#17233C,stroke-dasharray:5 4;
+    classDef legacy fill:#F5F5F5,stroke:#8B919C,color:#546176,stroke-dasharray:4 4;
+
+    class TITLE title;
+    class CLIENT client;
+    class UI interface;
+    class SERVICE service;
+    class MODULE module;
+    class BRIDGE bridge;
+    class STORAGE storage;
+    class FUTURE future;
+    class LEGACY legacy;

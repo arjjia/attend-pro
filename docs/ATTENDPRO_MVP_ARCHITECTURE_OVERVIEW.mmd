@@ -1,0 +1,58 @@
+flowchart TB
+    subgraph U["Пользователи"]
+        direction LR
+        T["Преподаватель<br/>device key · ENTRY / EXIT"]
+        S["Студент<br/>device key · verify + claim"]
+    end
+
+    subgraph F["frontend :3000 · $mol SPA/PWA"]
+        direction LR
+        APP["frontend/attend/pro<br/>Root.view.tree + Root.view.ts"]
+        LOCAL["Web Crypto ES256 · RFC 8785<br/>IndexedDB: keys, permit, outbox, decisions<br/>$mol_offline · QR · camera"]
+        GIPER["Giper evidence adapter<br/>private Land<br/>UI publish выключен до Web Worker"]
+        APP --> LOCAL
+        APP -.-> GIPER
+    end
+
+    subgraph B["backend :8000 · FastAPI Portal API"]
+        direction LR
+        API["mock SSO · devices · lessons<br/>permits · attendance sync"]
+        VERIFY["proof verifier + policy<br/>portal signer · ES256"]
+        API --> VERIFY
+    end
+
+    subgraph D["Authority и хранение"]
+        direction LR
+        PG[("PostgreSQL 17<br/>8 таблиц · claims · decisions · audit")]
+        VOL["portal_keys + postgres_data<br/>персистентные volumes"]
+        PG <--> VOL
+    end
+
+    subgraph FUT["Следующие интеграции"]
+        direction LR
+        X["Целевые adapters<br/>University SSO / OIDC · Modeus"]
+        R["Giper relay + Web Worker"]
+    end
+
+    T --> APP
+    S --> APP
+    T -->|"подписанный QR · 30 с"| S
+    LOCAL -->|"proof после возврата сети"| API
+    API -->|"подписанный PortalDecision"| APP
+    VERIFY <--> PG
+    X -. "production" .-> API
+    GIPER -.-> R
+
+    classDef client fill:#ECEFF1,stroke:#546176,color:#17233C;
+    classDef interface fill:#E3F2FD,stroke:#1769E0,color:#17233C;
+    classDef service fill:#E8F5E9,stroke:#16A085,color:#17233C;
+    classDef storage fill:#FFEBEE,stroke:#B95C68,color:#17233C;
+    classDef bridge fill:#E0F7FA,stroke:#16A085,color:#17233C;
+    classDef future fill:#E8EAF6,stroke:#5965B8,color:#17233C,stroke-dasharray:5 4;
+
+    class T,S client;
+    class APP,LOCAL interface;
+    class API,VERIFY service;
+    class PG,VOL storage;
+    class GIPER bridge;
+    class X,R future;

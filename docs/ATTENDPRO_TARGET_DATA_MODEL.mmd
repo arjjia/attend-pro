@@ -1,0 +1,60 @@
+flowchart TB
+    subgraph AUTH["Authority — кто имеет право действовать"]
+        direction LR
+        TENANT["Tenant<br/>организация"]
+        USER["User<br/>SSO subject, роль"]
+        DEVICE["DeviceCredential<br/>публичный ключ устройства"]
+        REVOKE["KeyRevocation<br/>отзыв и причина"]
+        POLICY["PolicyVersion<br/>правила зачёта"]
+    end
+
+    subgraph SCHEDULE["Schedule — что, где и когда происходит"]
+        direction LR
+        COURSE["Course / Group<br/>справочники"]
+        LESSON["LessonInstance<br/>дата, время, аудитория"]
+        ROSTER["LessonMembership<br/>student ↔ lesson"]
+        WINDOW["AttendanceWindow<br/>ENTRY / EXIT / CHECKPOINT"]
+        PERMIT["LessonPermit<br/>portal → teacher device"]
+    end
+
+    subgraph EVIDENCE["Evidence — кто что подписал и когда"]
+        direction LR
+        CHALLENGE["TeacherChallenge<br/>teacher → lesson, nonce, TTL"]
+        CLAIM["AttendanceClaim<br/>student → challenge, captured_at"]
+        TRIPLET["Базовый аналитический триплет<br/>actor_student — actor_teacher — time"]
+        REPLICA["EvidenceReplicaRef<br/>Giper Land / HTTP outbox"]
+    end
+
+    subgraph DECISION["Decision — что официально засчитано"]
+        direction LR
+        VERDICT["AttendanceDecision<br/>status, reason codes"]
+        OVERRIDE["AttendanceOverride<br/>кто и почему изменил решение"]
+        AUDIT["AuditEvent<br/>неизменяемый журнал"]
+        OUTBOX["IntegrationOutbox<br/>Modeus / аналитика"]
+    end
+
+    TENANT --> USER --> DEVICE --> REVOKE
+    COURSE --> LESSON --> WINDOW
+    USER --> ROSTER --> LESSON
+    DEVICE --> PERMIT --> LESSON
+    WINDOW --> CHALLENGE
+    DEVICE --> CHALLENGE
+    CHALLENGE --> CLAIM
+    ROSTER --> CLAIM
+    CLAIM --> TRIPLET
+    CLAIM --> REPLICA
+    CLAIM --> VERDICT
+    POLICY --> VERDICT
+    VERDICT --> OVERRIDE
+    VERDICT --> AUDIT
+    OVERRIDE --> AUDIT
+    VERDICT --> OUTBOX
+
+    classDef authority fill:#E8EAF6,stroke:#5965B8,color:#17233C;
+    classDef schedule fill:#E3F2FD,stroke:#1769E0,color:#17233C;
+    classDef evidence fill:#E0F7FA,stroke:#16A085,color:#17233C;
+    classDef decision fill:#FFEBEE,stroke:#B95C68,color:#17233C;
+    class TENANT,USER,DEVICE,REVOKE,POLICY authority;
+    class COURSE,LESSON,ROSTER,WINDOW,PERMIT schedule;
+    class CHALLENGE,CLAIM,TRIPLET,REPLICA evidence;
+    class VERDICT,OVERRIDE,AUDIT,OUTBOX decision;
