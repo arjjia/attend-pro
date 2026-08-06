@@ -54,12 +54,13 @@ namespace $ {
 
 	export class $attend_pro_store extends $mol_object2 {
 
-		@ $mol_mem
+		db_promise: ReturnType< $attend_pro_store[ 'db_open' ] > | null = null
+
 		db() {
-			return $mol_wire_sync( this as $attend_pro_store ).db_init()
+			return this.db_promise ??= this.db_open()
 		}
 
-		db_init() {
+		db_open() {
 			return this.$.$mol_db< $attend_pro_db >( 'attend-pro-v1',
 				migration => migration.store_make( 'Meta' ),
 				migration => migration.store_make( 'Devices' ),
@@ -70,30 +71,34 @@ namespace $ {
 		}
 
 		async get< Name extends keyof $attend_pro_db >( store: Name, key: string ) {
-			return await this.db().read( store )[ store ].get( key ) as $attend_pro_db[ Name ][ 'Doc' ] | undefined
+			const db = await this.db()
+			return await db.read( store )[ store ].get( key ) as $attend_pro_db[ Name ][ 'Doc' ] | undefined
 		}
 
 		async put< Name extends keyof $attend_pro_db >(
 			store: Name, key: string, value: $attend_pro_db[ Name ][ 'Doc' ],
 		) {
-			const transaction = this.db().change( store )
+			const db = await this.db()
+			const transaction = db.change( store )
 			await transaction.stores[ store ].put( value, key )
 			await transaction.commit()
 			return value
 		}
 
 		async drop< Name extends keyof $attend_pro_db >( store: Name, key: string ) {
-			const transaction = this.db().change( store )
+			const db = await this.db()
+			const transaction = db.change( store )
 			await transaction.stores[ store ].drop( key )
 			await transaction.commit()
 		}
 
 		async all< Name extends keyof $attend_pro_db >( store: Name ) {
-			return await this.db().read( store )[ store ].select() as $attend_pro_db[ Name ][ 'Doc' ][]
+			const db = await this.db()
+			return await db.read( store )[ store ].select() as $attend_pro_db[ Name ][ 'Doc' ][]
 		}
 
 		async pending_entries() {
-			const db = this.db()
+			const db = await this.db()
 			const keys = await new Promise<IDBValidKey[]>( ( done, fail ) => {
 				const request = db.native.transaction( 'Pending', 'readonly' ).objectStore( 'Pending' ).getAllKeys()
 				request.onsuccess = () => done( request.result )

@@ -206,21 +206,33 @@ namespace $.$$ {
 
 		account_login( id: string, event?: Event ) {
 			if( event === undefined ) return null
-			const account = this.accounts().find( ( item: $attend_pro_user ) => item.id === id )!
-			const user = $mol_wire_sync( this as $attend_pro_app ).login_async( account.email )
-			this.user( user )
-			const device = $mol_wire_sync( this as $attend_pro_app ).device_init( user )
-			this.device( device )
-			const lesson = $mol_wire_sync( this as $attend_pro_app ).current_load()
-			this.current( lesson )
-			if( user.role === 'teacher' && lesson ) {
-				const permit = $mol_wire_sync( this as $attend_pro_app ).permit_load( lesson, device )
-				this.permit( permit )
-			}
-			const trust = $mol_wire_sync( this as $attend_pro_app ).trust_load()
-			this.trust( trust )
-			this.error_text( '' )
+			void this.account_login_async( id ).catch( error => {
+				this.error_text( error?.message ?? String( error ) )
+			} )
 			return null
+		}
+
+		async account_login_async( id: string ) {
+			const account = this.accounts().find( ( item: $attend_pro_user ) => item.id === id )!
+			const user = await this.login_async( account.email )
+			// The mock endpoint sets an HttpOnly cookie. Let the browser commit it before
+			// starting authenticated requests; real SSO will naturally have a redirect.
+			await new Promise( done => setTimeout( done, 100 ) )
+			const device = await this.device_init( user )
+			const [ lesson, trust ] = await Promise.all([
+				this.current_load(),
+				this.trust_load(),
+			])
+			let permit: $attend_pro_permit_bundle | null = null
+			if( user.role === 'teacher' && lesson ) {
+				permit = await this.permit_load( lesson, device )
+			}
+			this.device( device )
+			this.current( lesson )
+			this.permit( permit )
+			this.trust( trust )
+			this.user( user )
+			this.error_text( '' )
 		}
 
 		async login_async( email: string ) {
@@ -233,12 +245,18 @@ namespace $.$$ {
 
 		logout( event?: Event ) {
 			if( event === undefined ) return null
-			$mol_wire_sync( this as $attend_pro_app ).logout_async()
+			void this.logout_flow_async().catch( error => {
+				this.error_text( error?.message ?? String( error ) )
+			} )
+			return null
+		}
+
+		async logout_flow_async() {
+			await this.logout_async()
 			this.user( null )
 			this.device( null )
 			this.current( null )
 			this.permit( null )
-			return null
 		}
 
 		async logout_async() {
@@ -275,15 +293,21 @@ namespace $.$$ {
 
 		start_now( event?: Event ) {
 			if( event === undefined ) return null
-			const lesson = $mol_wire_sync( this as $attend_pro_app ).start_now_async()
+			void this.start_now_flow_async().catch( error => {
+				this.error_text( error?.message ?? String( error ) )
+			} )
+			return null
+		}
+
+		async start_now_flow_async() {
+			const lesson = await this.start_now_async()
 			this.current( lesson )
 			const device = this.device()!
-			const permit = $mol_wire_sync( this as $attend_pro_app ).permit_load( lesson, device, true )
+			const permit = await this.permit_load( lesson, device, true )
 			this.permit( permit )
 			this.qr_uri( '' )
 			this.qr_raw( '' )
 			this.qr_hint( 'Тестовая пара запущена; новое разрешение сохранено в IndexedDB.' )
-			return null
 		}
 
 		async start_now_async() {
@@ -297,13 +321,17 @@ namespace $.$$ {
 
 		entry_qr( event?: Event ) {
 			if( event === undefined ) return null
-			$mol_wire_sync( this as $attend_pro_app ).make_qr_async( 'ENTRY' )
+			void this.make_qr_async( 'ENTRY' ).catch( error => {
+				this.error_text( error?.message ?? String( error ) )
+			} )
 			return null
 		}
 
 		exit_qr( event?: Event ) {
 			if( event === undefined ) return null
-			$mol_wire_sync( this as $attend_pro_app ).make_qr_async( 'EXIT' )
+			void this.make_qr_async( 'EXIT' ).catch( error => {
+				this.error_text( error?.message ?? String( error ) )
+			} )
 			return null
 		}
 
@@ -341,8 +369,13 @@ namespace $.$$ {
 				challenge,
 			}
 			const raw = JSON.stringify( qr )
-			const qrcode = $node[ 'qrcode' ] as typeof import( 'qrcode' )
-			const uri = await qrcode.toDataURL( raw, { errorCorrectionLevel: 'L', width: 760, margin: 2 } )
+			const qrcode = require( 'qrcode/lib/browser.js' ) as typeof import( 'qrcode' )
+			// A single byte segment is also more compact for the JSON protocol and
+			// avoids the text-mode segmentation optimiser that is useless here.
+			const uri = await ( qrcode.toDataURL as any )(
+				[{ data: raw, mode: 'byte' }],
+				{ errorCorrectionLevel: 'L', width: 760, margin: 2 },
+			)
 			this.qr_raw( raw )
 			this.qr_uri( uri )
 			this.qr_hint( `${ kind === 'ENTRY' ? 'Вход' : 'Выход' }: QR действует 90 секунд. Он подписан локально и создан ${ navigator.onLine ? 'при доступной сети' : 'полностью офлайн' }.` )
@@ -377,7 +410,7 @@ namespace $.$$ {
 					const context = canvas.getContext( '2d', { willReadFrequently: true } )!
 					context.drawImage( video, 0, 0 )
 					const image = context.getImageData( 0, 0, canvas.width, canvas.height )
-					const module = $node[ 'jsqr' ] as typeof import( 'jsqr' )
+					const module = require( 'jsqr/dist/jsQR.js' ) as typeof import( 'jsqr' )
 					const jsqr = ( module as any ).default ?? module
 					const result = jsqr( image.data, image.width, image.height, { inversionAttempts: 'attemptBoth' } )
 					if( result?.data ) {
@@ -396,7 +429,9 @@ namespace $.$$ {
 
 		qr_accept( event?: Event ) {
 			if( event === undefined ) return null
-			$mol_wire_sync( this as $attend_pro_app ).accept_qr_async( this.qr_input() )
+			void this.accept_qr_async( this.qr_input() ).catch( error => {
+				this.scan_status( `QR отклонён: ${ error?.message ?? String( error ) }` )
+			} )
 			return null
 		}
 
@@ -408,7 +443,7 @@ namespace $.$$ {
 		async accept_qr_async( raw: string ) {
 			const user = this.user()
 			const device = this.device()
-			const trust = this.trust()
+			const trust = await this.trust_load()
 			if( !user || user.role !== 'student' || !device ) throw new Error( 'Нужен вход студента и ключ устройства' )
 			if( !trust ) throw new Error( 'На устройстве ещё нет открытого ключа портала' )
 			let qr: QrPayload
@@ -478,7 +513,7 @@ namespace $.$$ {
 				replica_refs: [],
 			}
 			try {
-				const replica_ref = await $mol_wire_async( this.giper() ).publish( proof )
+				const replica_ref = this.giper().publish( proof )
 				proof.replica_refs = [ replica_ref ]
 			} catch( error: any ) {
 				// The authoritative claim must remain available even if the secondary replica fails.
@@ -515,14 +550,16 @@ namespace $.$$ {
 
 		sync_now( event?: Event ) {
 			if( event === undefined ) return null
-			$mol_wire_sync( this as $attend_pro_app ).sync_async()
+			void this.sync_async().catch( error => {
+				this.scan_status( `Синхронизация не выполнена: ${ error?.message ?? String( error ) }` )
+			} )
 			return null
 		}
 
 		async sync_async() {
 			const pending = await this.store().pending_entries()
 			if( !pending.length ) return
-			const trust = this.trust()
+			const trust = await this.trust_load()
 			if( !trust ) throw new Error( 'Нет доверенного открытого ключа портала для проверки решения' )
 			let accepted = 0
 			let processed = 0

@@ -27,7 +27,11 @@ async function prepare() {
 	await rm( source_link, { recursive: true, force: true } )
 	await symlink( path.join( '..', 'attend' ), source_link, 'dir' )
 	const modules_link = path.join( workspace, 'node_modules' )
-	if( !existsSync( modules_link ) ) await symlink( path.join( '..', 'node_modules' ), modules_link, 'dir' )
+	// MAM may populate its workspace with its own node_modules before this project
+	// is built. Always point dependency resolution at the project's locked modules
+	// so browser packages such as qrcode and jsqr are actually bundled.
+	await rm( modules_link, { recursive: true, force: true } )
+	await symlink( path.join( '..', 'node_modules' ), modules_link, 'dir' )
 }
 
 await prepare()
