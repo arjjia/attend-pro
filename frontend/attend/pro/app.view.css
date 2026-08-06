@@ -1,0 +1,86 @@
+[attend_pro_app] {
+	--ap-ink: #17233c;
+	--ap-blue: #1769e0;
+	--ap-mint: #16a085;
+	--ap-paper: #ffffff;
+	color: var(--ap-ink);
+	background: #f5f6f8;
+	font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+[attend_pro_app] [mol_page_head] {
+	background: var(--ap-ink);
+	color: white;
+	box-shadow: 0 2px 12px #17233c33;
+}
+
+[attend_pro_app_intro], [attend_pro_app_identity], [attend_pro_app_lesson],
+[attend_pro_app_teacher_explain], [attend_pro_app_student_explain],
+[attend_pro_app_pending], [attend_pro_app_history], [attend_pro_app_scan_status],
+[attend_pro_app_error], [attend_pro_app_no_lesson], [attend_pro_app_qr_hint] {
+	background: var(--ap-paper);
+	border-radius: 18px;
+	padding: 1rem 1.15rem;
+	box-shadow: 0 8px 28px #17233c12;
+}
+
+[attend_pro_app_intro_title], [attend_pro_app_lesson_title], [attend_pro_app_identity_name] {
+	font-size: 1.2rem;
+	font-weight: 750;
+	margin-bottom: .4rem;
+}
+
+[attend_pro_app_intro_text], [attend_pro_app_lesson_meta], [attend_pro_app_identity_role] {
+	color: #546176;
+	line-height: 1.5;
+}
+
+[attend_pro_app_lesson_badge] {
+	color: var(--ap-mint);
+	font-weight: 750;
+	font-size: .8rem;
+	text-transform: uppercase;
+	letter-spacing: .08em;
+	margin-bottom: .55rem;
+}
+
+[attend_pro_app_main] {
+	width: min(100%, 760px);
+	margin: 0 auto;
+	padding: 1rem;
+	gap: .8rem;
+}
+
+[attend_pro_app_qr] {
+	width: min(86vw, 440px);
+	height: min(86vw, 440px);
+	align-self: center;
+	background: white;
+	border-radius: 20px;
+	padding: 12px;
+	box-shadow: 0 12px 40px #17233c26;
+}
+
+[attend_pro_app_qr_raw], [attend_pro_app_qr_input] {
+	min-height: 7rem;
+	background: white;
+	border-radius: 14px;
+}
+
+[attend_pro_app_camera] {
+	width: 100%;
+	max-height: 52vh;
+	border-radius: 18px;
+	background: #0e1627;
+	overflow: hidden;
+}
+
+[attend_pro_app_network] {
+	font-size: .85rem;
+	opacity: .9;
+}
+
+@media (max-width: 540px) {
+	[attend_pro_app_main] { padding: .75rem; }
+	[attend_pro_app] [mol_page_title] { font-size: 1.05rem; }
+}

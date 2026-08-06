@@ -1,6 +1,10 @@
+.env
+.git
+.mam
 node_modules
 dist
-.git
-.env
-*.local
-*.tsbuildinfo
+attend/pro/-
+attend/pro/-view.tree
+attend/pro/-css
+test-results
+playwright-report

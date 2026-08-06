@@ -1,7 +1,19 @@
-node_modules
-dist
+node_modules/
+.mam/
+dist/
 .env
 *.local
-*.tsbuildinfo
-playwright-report
-test-results
+
+# MAM resolves framework modules as sibling source trees and generates bundles in `-`.
+/mol/
+/giper/
+/hyoo/
+attend/pro/-/
+attend/pro/-view.tree/
+attend/pro/-css/
+attend/pro/-node/
+attend/pro/-meta.tree/
+attend/pro/*.ts.map
+
+playwright-report/
+test-results/

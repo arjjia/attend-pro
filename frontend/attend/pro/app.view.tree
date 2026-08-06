@@ -1,0 +1,73 @@
+$attend_pro_app $mol_page
+	plugins /
+		<= Theme $mol_theme_auto
+	title \AttendPro
+	tools <= app_tools /
+		<= Network $mol_view
+			sub / <= network_label \● сеть
+		<= Logout $mol_button_minor
+			title \Выйти
+			click? <=> logout? null
+	body /
+		<= Intro $mol_view
+			sub /
+				<= Intro_title $mol_view sub / \Проверяемая посещаемость
+				<= Intro_text $mol_view sub / \Отметка создаётся на устройстве и может дождаться сети. Портал принимает её только после проверки всей цепочки подписей.
+		<= Main $mol_list
+			rows <= rows /
+	-
+	Loading $mol_view sub / \Загрузка локального состояния…
+	Error $mol_view sub / <= error_text? \
+	Identity $mol_view
+		sub /
+			<= Identity_name $mol_view sub / <= identity_name \
+			<= Identity_role $mol_view sub / <= identity_role \
+	Accounts_title $mol_view sub / \Тестовый вход через mock SSO
+	Account* $mol_button_major
+		title <= account_title* \
+		click? <=> account_login*? null
+	-
+	Lesson $mol_view
+		sub /
+			<= Lesson_badge $mol_view sub / <= lesson_state \
+			<= Lesson_title $mol_view sub / <= lesson_title \
+			<= Lesson_meta $mol_view sub / <= lesson_meta \
+	No_lesson $mol_view sub / \Сейчас активной пары нет. Преподаватель может запустить тестовую пару.
+	-
+	Teacher_explain $mol_view sub / \Устройство преподавателя выпускает короткоживущий QR-вызов. QR можно продолжать показывать без сети, пока действует заранее полученное разрешение пары.
+	Start_now $mol_button_major
+		title \Запустить тестовую пару сейчас
+		click? <=> start_now? null
+	Entry_qr $mol_button_major
+		title \Создать QR «Вход»
+		click? <=> entry_qr? null
+	Exit_qr $mol_button_minor
+		title \Создать QR «Выход»
+		click? <=> exit_qr? null
+	Qr $mol_image
+		uri <= qr_uri? \
+		title \Подписанный QR AttendPro
+	Qr_hint $mol_view sub / <= qr_hint? \
+	Qr_raw $mol_textarea
+		value? <=> qr_raw? \
+		enabled false
+	-
+	Student_explain $mol_view sub / \Сканирование проверяет подпись преподавателя прямо на телефоне. Затем телефон подписывает собственное утверждение и сохраняет его в IndexedDB до синхронизации.
+	Camera $mol_video_camera
+		facing \environment
+	Start_scan $mol_button_major
+		title <= scan_button_title \Включить камеру и искать QR
+		click? <=> scan_start? null
+	Qr_input $mol_textarea
+		hint \Для теста можно вставить сюда JSON из поля преподавателя
+		value? <=> qr_input? \
+	Accept_qr $mol_button_minor
+		title \Проверить и подписать вставленный QR
+		click? <=> qr_accept? null
+	Scan_status $mol_view sub / <= scan_status? \
+	Pending $mol_view sub / <= pending_label \
+	Sync $mol_button_major
+		title \Синхронизировать сохранённые отметки
+		enabled <= sync_enabled true
+		click? <=> sync_now? null
+	History $mol_view sub / <= history_label \

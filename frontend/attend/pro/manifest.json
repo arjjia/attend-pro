@@ -1,0 +1,11 @@
+{
+  "short_name": "AttendPro",
+  "name": "AttendPro — подписанная посещаемость",
+  "start_url": "./",
+  "scope": "./",
+  "background_color": "#f5f6f8",
+  "theme_color": "#17233c",
+  "display": "standalone",
+  "lang": "ru",
+  "description": "Local-first PWA для криптографически проверяемой посещаемости"
+}
