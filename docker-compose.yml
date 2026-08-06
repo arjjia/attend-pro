@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:latest
+    image: postgres:17-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-attendpro}
       POSTGRES_USER: ${POSTGRES_USER:-attendpro}
@@ -19,10 +19,11 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-attendpro}:${POSTGRES_PASSWORD:-attendpro}@db:5432/${POSTGRES_DB:-attendpro}
-      JWT_SECRET: ${JWT_SECRET:-development-only-change-me}
-      CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://127.0.0.1:4173
-      SEED_DATE: ${SEED_DATE:-}
-    command: ["sh", "-c", "uv run --locked alembic upgrade head && uv run --locked python -m app.seed && uv run --locked uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+      SESSION_SECRET: ${SESSION_SECRET:-development-session-secret-change-me}
+      PORTAL_PRIVATE_KEY_PATH: /var/lib/attendpro/keys/portal-private-key.pem
+      ENABLE_TEST_API: ${ENABLE_TEST_API:-true}
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    command: ["sh", "-c", "alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
     depends_on:
       db:
         condition: service_healthy
@@ -33,12 +34,11 @@ services:
       retries: 20
     ports:
       - "8000:8000"
+    volumes:
+      - portal_keys:/var/lib/attendpro/keys
 
   frontend:
-    build:
-      context: ./frontend
-      args:
-        VITE_API_URL: /api
+    build: ./frontend
     depends_on:
       backend:
         condition: service_healthy
@@ -47,3 +47,4 @@ services:
 
 volumes:
   postgres_data:
+  portal_keys:
