@@ -5,13 +5,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://attendpro:attendpro@localhost:5432/attendpro"
-    jwt_secret: str = "development-only-change-me"
-    jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 1440
-    cors_origins: str = (
-        "http://localhost:5173,http://127.0.0.1:4173,http://localhost:3000"
-    )
-    seed_date: str | None = None
+    session_secret: str = "development-session-secret-change-me"
+    session_expire_minutes: int = 1440
+    session_cookie_secure: bool = False
+    portal_private_key_path: str = "./data/portal-private-key.pem"
+    portal_key_id: str = "attendpro-portal-p256-v1"
+    device_credential_days: int = 30
+    qr_ttl_seconds: int = 90
+    clock_skew_seconds: int = 120
+    enable_test_api: bool = True
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:9080,http://127.0.0.1:9080"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

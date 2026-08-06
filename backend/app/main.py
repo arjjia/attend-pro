@@ -1,17 +1,27 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import auth, lecturer, schedule, student, websocket
-from app.services.codes import AttendanceCodeStore
-from app.services.websockets import AttendanceHub
+from app.routers.api import router
+from app.security import get_portal_signer
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    application = FastAPI(title="AttendPro API", version="0.1.0")
-    application.state.code_store = AttendanceCodeStore()
-    application.state.attendance_hub = AttendanceHub()
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        get_portal_signer()
+        yield
+
+    application = FastAPI(
+        title="AttendPro signed attendance portal",
+        version="0.2.0",
+        description="Hybrid local-first attendance MVP with verifiable offline proofs.",
+        lifespan=lifespan,
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
@@ -19,11 +29,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    application.include_router(auth.router)
-    application.include_router(schedule.router)
-    application.include_router(lecturer.router)
-    application.include_router(student.router)
-    application.include_router(websocket.router)
+    application.include_router(router)
 
     @application.get("/health", tags=["system"])
     async def health() -> dict[str, str]:

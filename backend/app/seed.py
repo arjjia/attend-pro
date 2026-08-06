@@ -1,170 +1,125 @@
 import asyncio
-from datetime import date, datetime, time
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.config import get_settings
 from app.database import SessionLocal
-from app.models import Schedule, User
-from app.security import hash_password
+from app.models import Lesson, LessonMember, User
 
 
-TYUMEN = ZoneInfo("Asia/Yekaterinburg")
-GROUP = "РСОДПО-П-МОиАИС-23.01"
-STUDENTS = [
-    "Иванов Иван",
-    "Петров Пётр",
-    "Смирнова Анна",
-    "Кузнецов Алексей",
-    "Попова Мария",
-    "Соколов Дмитрий",
-    "Лебедева Екатерина",
-    "Козлов Михаил",
-    "Новикова Софья",
-    "Морозов Артём",
-    "Волкова Полина",
-    "Соловьёв Максим",
-    "Васильева Алина",
-    "Зайцев Никита",
-    "Павлова Дарья",
-    "Семёнов Кирилл",
-    "Голубева Виктория",
-    "Виноградов Андрей",
-    "Богданова Елизавета",
-    "Воробьёв Роман",
-    "Фёдорова Ксения",
-    "Михайлов Сергей",
-    "Беляева Валерия",
-    "Тарасов Егор",
+TEACHER_ID = "00000000-0000-4000-8000-000000000001"
+STUDENT_IDS = [
+    "00000000-0000-4000-8000-000000000101",
+    "00000000-0000-4000-8000-000000000102",
+    "00000000-0000-4000-8000-000000000103",
 ]
+CURRENT_LESSON_ID = "10000000-0000-4000-8000-000000000001"
+NEXT_LESSON_ID = "10000000-0000-4000-8000-000000000002"
+GROUP = "РСОДПО-П-МОиАИС-23.01"
 
 
-async def upsert_user(
-    db: AsyncSession,
-    email: str,
-    full_name: str,
-    role: str,
-    group: str | None,
-    password_hash: str,
-) -> User:
-    user = await db.scalar(select(User).where(User.email == email))
-    if user is None:
-        user = User(email=email, password_hash="", role=role, full_name=full_name, group=group)
-        db.add(user)
-    user.password_hash = password_hash
-    user.role = role
-    user.full_name = full_name
-    user.group = group
-    return user
+async def seed_database(db: AsyncSession, now: datetime | None = None) -> None:
+    now = now or datetime.now(timezone.utc)
+    users = [
+        User(
+            id=TEACHER_ID,
+            email="teacher@attend.test",
+            role="teacher",
+            full_name="Мельникова Антонина Владимировна",
+            group_name=None,
+            active=True,
+        ),
+        User(
+            id=STUDENT_IDS[0],
+            email="student1@attend.test",
+            role="student",
+            full_name="Иванов Иван",
+            group_name=GROUP,
+            active=True,
+        ),
+        User(
+            id=STUDENT_IDS[1],
+            email="student2@attend.test",
+            role="student",
+            full_name="Петрова Анна",
+            group_name=GROUP,
+            active=True,
+        ),
+        User(
+            id=STUDENT_IDS[2],
+            email="student3@attend.test",
+            role="student",
+            full_name="Смирнов Максим",
+            group_name=GROUP,
+            active=True,
+        ),
+    ]
+    for candidate in users:
+        stored = await db.get(User, candidate.id)
+        if stored is None:
+            db.add(candidate)
+        else:
+            stored.email = candidate.email
+            stored.role = candidate.role
+            stored.full_name = candidate.full_name
+            stored.group_name = candidate.group_name
+            stored.active = True
+    await db.flush()
+
+    specs = [
+        Lesson(
+            id=CURRENT_LESSON_ID,
+            course_code="БКИТ-2026",
+            title="Архитектура информационных систем",
+            kind="Практическое занятие",
+            group_name=GROUP,
+            room="Главный корпус / 209",
+            starts_at=now - timedelta(minutes=10),
+            ends_at=now + timedelta(minutes=80),
+            teacher_id=TEACHER_ID,
+            test_managed=True,
+        ),
+        Lesson(
+            id=NEXT_LESSON_ID,
+            course_code="БКИТ-2026",
+            title="Криптография прикладных протоколов",
+            kind="Лекция",
+            group_name=GROUP,
+            room="Главный корпус / 305",
+            starts_at=now + timedelta(days=1),
+            ends_at=now + timedelta(days=1, minutes=90),
+            teacher_id=TEACHER_ID,
+            test_managed=True,
+        ),
+    ]
+    for candidate in specs:
+        stored = await db.get(Lesson, candidate.id)
+        if stored is None:
+            db.add(candidate)
+        else:
+            stored.course_code = candidate.course_code
+            stored.title = candidate.title
+            stored.kind = candidate.kind
+            stored.group_name = candidate.group_name
+            stored.room = candidate.room
+            if candidate.id == CURRENT_LESSON_ID and stored.ends_at < now:
+                stored.starts_at = candidate.starts_at
+                stored.ends_at = candidate.ends_at
+            stored.teacher_id = candidate.teacher_id
+            stored.test_managed = True
+    await db.flush()
+    for lesson_id in (CURRENT_LESSON_ID, NEXT_LESSON_ID):
+        for student_id in STUDENT_IDS:
+            if await db.get(LessonMember, (lesson_id, student_id)) is None:
+                db.add(LessonMember(lesson_id=lesson_id, student_id=student_id))
+    await db.commit()
 
 
 async def seed() -> None:
-    settings = get_settings()
-    seed_day = date.fromisoformat(settings.seed_date) if settings.seed_date else datetime.now(TYUMEN).date()
     async with SessionLocal() as db:
-        password_hash = hash_password("123456")
-        student1 = await upsert_user(
-            db, "student1@test.ru", "Иванов Иван", "student", GROUP, password_hash
-        )
-        student2 = await upsert_user(
-            db, "student2@test.ru", "Петров Пётр", "student", GROUP, password_hash
-        )
-        lecturer = await upsert_user(
-            db,
-            "lecturer@test.ru",
-            "Мельникова Антонина Владимировна",
-            "lecturer",
-            None,
-            password_hash,
-        )
-        vorobieva = await upsert_user(
-            db,
-            "vorobieva@test.ru",
-            "Воробьева Марина Сергеевна",
-            "lecturer",
-            None,
-            password_hash,
-        )
-        del student1, student2
-        await db.flush()
-        schedule_specs = [
-            {
-                "module": "РСОДПО",
-                "short_name": "Разработка интерфейса пользователя.",
-                "full_name": "Разработка интерфейса пользователя. Практическое занятие",
-                "type": "Практическое занятие",
-                "form": "Проектный семинар",
-                "audience": "Главный корпус / 209",
-                "capacity": 30,
-                "equipment": "Проектор",
-                "start_time": datetime.combine(seed_day, time(15, 55), TYUMEN),
-                "end_time": datetime.combine(seed_day, time(17, 25), TYUMEN),
-                "duration": "1 п.",
-                "lecturers": [lecturer, vorobieva],
-            },
-            {
-                "module": "РСОДПО",
-                "short_name": "Аттестация",
-                "full_name": "Аттестация по программе МОиАИС",
-                "type": "Аттестация",
-                "form": "Аттестация",
-                "audience": "Главный корпус / 209",
-                "capacity": 30,
-                "equipment": "Проектор",
-                "start_time": datetime.combine(seed_day, time(17, 40), TYUMEN),
-                "end_time": datetime.combine(seed_day, time(19, 10), TYUMEN),
-                "duration": "1 п.",
-                "lecturers": [lecturer],
-            },
-        ]
-        for spec in schedule_specs:
-            schedule = await db.scalar(
-                select(Schedule)
-                .options(selectinload(Schedule.lecturers))
-                .where(
-                    Schedule.module == spec["module"],
-                    Schedule.short_name == spec["short_name"],
-                    Schedule.group == GROUP,
-                )
-            )
-            if schedule is None:
-                schedule = Schedule(
-                    module=spec["module"],
-                    short_name=spec["short_name"],
-                    full_name=spec["full_name"],
-                    type=spec["type"],
-                    form=spec["form"],
-                    group=GROUP,
-                    audience=spec["audience"],
-                    capacity=spec["capacity"],
-                    equipment=spec["equipment"],
-                    start_time=spec["start_time"],
-                    end_time=spec["end_time"],
-                    duration=spec["duration"],
-                    fact_passed=False,
-                    students=STUDENTS,
-                    allowed_late_minutes=15,
-                )
-                db.add(schedule)
-            schedule.module = spec["module"]
-            schedule.short_name = spec["short_name"]
-            schedule.full_name = spec["full_name"]
-            schedule.type = spec["type"]
-            schedule.form = spec["form"]
-            schedule.audience = spec["audience"]
-            schedule.capacity = spec["capacity"]
-            schedule.equipment = spec["equipment"]
-            schedule.start_time = spec["start_time"]
-            schedule.end_time = spec["end_time"]
-            schedule.duration = spec["duration"]
-            schedule.fact_passed = False
-            schedule.students = STUDENTS
-            schedule.lecturers = spec["lecturers"]
-        await db.commit()
-    print(f"Seeded AttendPro for {seed_day}: student1/student2/lecturer/vorobieva, password 123456")
+        await seed_database(db)
+    print("Seeded mock SSO: teacher@attend.test and student1..3@attend.test")
+    print("The first lesson is current; POST /api/v1/test/lessons/start-now restarts it.")
 
 
 if __name__ == "__main__":

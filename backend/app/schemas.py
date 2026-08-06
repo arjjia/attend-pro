@@ -1,114 +1,85 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class UserPublic(BaseModel):
-    id: int
-    email: str
-    role: str
-    full_name: str
-    group: str | None
-
+class UserView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-
-class LoginRequest(BaseModel):
+    id: str
     email: str
-    password: str
-
-
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: UserPublic
-
-
-class LecturerPublic(BaseModel):
-    id: int
+    role: Literal["student", "teacher"]
     full_name: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ScheduleCard(BaseModel):
-    id: int
-    module: str
-    short_name: str
-    full_name: str
-    type: str
-    form: str
-    group: str
-    audience: str
-    capacity: int
-    equipment: str
-    start_time: datetime
-    end_time: datetime
-    duration: str
-    fact_passed: bool
-    students: list[str]
-    lecturers: list[LecturerPublic]
-    active: bool
-    attendance_active: bool
-    allowed_late_minutes: int
-    attendance_started_at: datetime | None
-    attendance_finished_at: datetime | None
-    exit_enabled: bool
+    group_name: str | None
 
 
-class StartAttendanceRequest(BaseModel):
-    allowed_late_minutes: int = Field(default=15, ge=0, le=180)
-    exit_enabled: bool = False
+class MockLoginRequest(BaseModel):
+    email: str
 
 
-class CodeResponse(BaseModel):
-    code: str
-    qr_code: str
-    expires_in: int
-    schedule_id: int
-    expires_at: datetime
-    rotation_seconds: int = 15
+class SignedEnvelope(BaseModel):
+    payload: dict[str, Any]
+    signature: str
+    key_id: str
+    algorithm: Literal["ES256"] = "ES256"
 
 
-class StopResponse(BaseModel):
-    schedule_id: int
-    stopped_at: datetime
+class DeviceEnrollRequest(BaseModel):
+    device_id: str = Field(min_length=36, max_length=36)
+    label: str = Field(min_length=1, max_length=120)
+    public_key_jwk: dict[str, Any]
 
 
-class MarkRequest(BaseModel):
-    schedule_id: int
-    code: str = Field(pattern=r"^\d{6}$")
-    type: str = Field(default="entry", pattern=r"^entry$")
+class LessonView(BaseModel):
+    id: str
+    course_code: str
+    title: str
+    kind: str
+    group_name: str
+    room: str
+    starts_at: datetime
+    ends_at: datetime
+    teacher_name: str
+    state: Literal["scheduled", "current", "ended"]
+    test_managed: bool
 
 
-class MarkResponse(BaseModel):
-    id: int
-    schedule_id: int
-    timestamp: datetime
-    type: str
-    late_minutes: int
-    credited: bool
-    schedule_name: str
-    message: str
+class StartLessonRequest(BaseModel):
+    lesson_id: str | None = None
+    duration_minutes: int = Field(default=90, ge=15, le=240)
 
 
-class AttendanceItem(BaseModel):
-    id: int
-    user_id: int
-    student_name: str
-    timestamp: datetime
-    type: str
-    late_minutes: int
-    credited: bool
+class PermitRequest(BaseModel):
+    device_credential_id: str
 
 
-class HistoryItem(BaseModel):
-    id: int
-    schedule_id: int
-    schedule_name: str
-    start_time: datetime
-    timestamp: datetime
-    audience: str
-    type: str
-    late_minutes: int
-    credited: bool
+class PermitBundle(BaseModel):
+    teacher_credential: SignedEnvelope
+    permit: SignedEnvelope
+
+
+class ClaimProof(BaseModel):
+    teacher_credential: SignedEnvelope
+    permit: SignedEnvelope
+    challenge: SignedEnvelope
+    student_credential: SignedEnvelope
+    claim: SignedEnvelope
+    replica_refs: list[Annotated[str, Field(max_length=255)]] = Field(
+        default_factory=list, max_length=5
+    )
+
+
+class ClaimSyncRequest(BaseModel):
+    claims: list[ClaimProof] = Field(min_length=1, max_length=100)
+
+
+class ClaimSyncResult(BaseModel):
+    claim_id: str
+    decision: SignedEnvelope
+
+
+class ClaimSyncResponse(BaseModel):
+    results: list[ClaimSyncResult]

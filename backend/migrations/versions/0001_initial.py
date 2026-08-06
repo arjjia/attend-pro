@@ -1,4 +1,4 @@
-"""Initial AttendPro schema.
+"""Legacy prototype schema retained as the Alembic history root.
 
 Revision ID: 0001
 Revises:
