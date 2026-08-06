@@ -1,10 +1,14 @@
 $attend_pro_app $mol_page
-	plugins /
-		<= Theme $mol_theme_auto
+	attr *
+		^
+		mol_theme <= theme_name \$mol_theme_light
 	title \AttendPro
 	tools <= app_tools /
 		<= Network $mol_view
 			sub / <= network_label \● сеть
+		<= Theme_toggle $mol_button_minor
+			title <= theme_button_title \Тёмная тема
+			click? <=> theme_toggle? null
 		<= Logout $mol_button_minor
 			title \Выйти
 			click? <=> logout? null
@@ -35,19 +39,29 @@ $attend_pro_app $mol_page
 	No_lesson $mol_view sub / \Сейчас активной пары нет. Преподаватель может запустить тестовую пару.
 	-
 	Teacher_explain $mol_view sub / \Устройство преподавателя выпускает короткоживущий QR-вызов. QR можно продолжать показывать без сети, пока действует заранее полученное разрешение пары.
+	Test_lesson_explain $mol_view sub / \Тестовая кнопка устанавливает начало пары на текущий момент, окончание — через 90 минут, получает новое разрешение и останавливает старый показ QR.
 	Start_now $mol_button_major
-		title \Запустить тестовую пару сейчас
+		title <= start_now_title \Запустить тестовую пару на 90 минут
 		click? <=> start_now? null
+	Action_status $mol_view sub / <= action_status? \
+	Qr_kind_explain $mol_view sub / \«Вход» фиксирует прибытие студента, «Выход» — уход. Это два разных типа подписанного события, поэтому для них нужны отдельные QR.
+	Qr_actions $mol_view
+		sub /
+			<= Entry_qr
+			<= Exit_qr
 	Entry_qr $mol_button_major
-		title \Создать QR «Вход»
+		title <= entry_qr_title \Показывать QR «Вход»
 		click? <=> entry_qr? null
-	Exit_qr $mol_button_minor
-		title \Создать QR «Выход»
+	Exit_qr $mol_button_major
+		title <= exit_qr_title \Показывать QR «Выход»
 		click? <=> exit_qr? null
+	Stop_qr $mol_button_minor
+		title \Остановить показ QR
+		click? <=> stop_qr? null
 	Qr $mol_image
 		uri <= qr_uri? \
 		title \Подписанный QR AttendPro
-	Qr_hint $mol_view sub / <= qr_hint? \
+	Qr_hint $mol_view sub / <= qr_hint \
 	Qr_raw $mol_textarea
 		value? <=> qr_raw? \
 		enabled false
@@ -62,7 +76,8 @@ $attend_pro_app $mol_page
 		hint \Для теста можно вставить сюда JSON из поля преподавателя
 		value? <=> qr_input? \
 	Accept_qr $mol_button_minor
-		title \Проверить и подписать вставленный QR
+		title <= accept_qr_title \Проверить и подписать вставленный QR
+		enabled <= accept_qr_enabled true
 		click? <=> qr_accept? null
 	Scan_status $mol_view sub / <= scan_status? \
 	Pending $mol_view sub / <= pending_label \

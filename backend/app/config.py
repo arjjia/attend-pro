@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     portal_private_key_path: str = "./data/portal-private-key.pem"
     portal_key_id: str = "attendpro-portal-p256-v1"
     device_credential_days: int = 30
-    qr_ttl_seconds: int = 90
+    qr_ttl_seconds: int = 30
     clock_skew_seconds: int = 120
     enable_test_api: bool = True
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:9080,http://127.0.0.1:9080"

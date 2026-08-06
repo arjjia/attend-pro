@@ -1,38 +1,98 @@
 [attend_pro_app] {
 	--ap-ink: #17233c;
+	--ap-muted: #546176;
 	--ap-blue: #1769e0;
 	--ap-mint: #16a085;
 	--ap-paper: #ffffff;
+	--ap-field: #ffffff;
+	--ap-page: #f5f6f8;
+	--ap-head: #17233c;
+	--ap-shadow: #17233c12;
 	color: var(--ap-ink);
-	background: #f5f6f8;
+	background: var(--ap-page);
 	font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+	min-height: 100dvh;
+	overflow-x: hidden;
+}
+
+[attend_pro_app][mol_theme="$mol_theme_dark"] {
+	--ap-ink: #edf3ff;
+	--ap-muted: #aebbd0;
+	--ap-blue: #68a7ff;
+	--ap-mint: #55d7bc;
+	--ap-paper: #18243a;
+	--ap-field: #101a2c;
+	--ap-page: #0d1525;
+	--ap-head: #09111f;
+	--ap-shadow: #0000003d;
+}
+
+[attend_pro_app], [attend_pro_app] * {
+	box-sizing: border-box;
+	min-width: 0;
 }
 
 [attend_pro_app] [mol_page_head] {
-	background: var(--ap-ink);
+	background: var(--ap-head);
 	color: white;
 	box-shadow: 0 2px 12px #17233c33;
+	flex-wrap: wrap;
+}
+
+[attend_pro_app] [mol_page_tools] {
+	flex-wrap: wrap;
+}
+
+[attend_pro_app] [mol_page_head] [mol_button] {
+	color: #dbeafe;
+}
+
+[attend_pro_app] [mol_page_head] [mol_button]:hover,
+[attend_pro_app] [mol_page_head] [mol_button]:focus-visible {
+	background: #ffffff14;
 }
 
 [attend_pro_app_intro], [attend_pro_app_identity], [attend_pro_app_lesson],
 [attend_pro_app_teacher_explain], [attend_pro_app_student_explain],
 [attend_pro_app_pending], [attend_pro_app_history], [attend_pro_app_scan_status],
-[attend_pro_app_error], [attend_pro_app_no_lesson], [attend_pro_app_qr_hint] {
+[attend_pro_app_error], [attend_pro_app_no_lesson], [attend_pro_app_qr_hint],
+[attend_pro_app_test_lesson_explain], [attend_pro_app_action_status],
+[attend_pro_app_qr_kind_explain] {
 	background: var(--ap-paper);
 	border-radius: 18px;
 	padding: 1rem 1.15rem;
-	box-shadow: 0 8px 28px #17233c12;
+	box-shadow: 0 8px 28px var(--ap-shadow);
+	width: 100%;
+	max-width: 100%;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	word-break: normal;
+	line-height: 1.5;
+}
+
+[attend_pro_app_intro], [attend_pro_app_identity], [attend_pro_app_lesson] {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
 }
 
 [attend_pro_app_intro_title], [attend_pro_app_lesson_title], [attend_pro_app_identity_name] {
 	font-size: 1.2rem;
 	font-weight: 750;
 	margin-bottom: .4rem;
+	display: block;
+	width: 100%;
+	white-space: normal;
+	overflow-wrap: anywhere;
 }
 
 [attend_pro_app_intro_text], [attend_pro_app_lesson_meta], [attend_pro_app_identity_role] {
-	color: #546176;
+	color: var(--ap-muted);
 	line-height: 1.5;
+	display: block;
+	width: 100%;
+	white-space: normal;
+	overflow-wrap: anywhere;
 }
 
 [attend_pro_app_lesson_badge] {
@@ -42,18 +102,38 @@
 	text-transform: uppercase;
 	letter-spacing: .08em;
 	margin-bottom: .55rem;
+	display: block;
+	width: 100%;
+	white-space: normal;
+	overflow-wrap: anywhere;
 }
 
 [attend_pro_app_main] {
-	width: min(100%, 760px);
+	width: 100%;
+	max-width: 760px;
 	margin: 0 auto;
 	padding: 1rem;
 	gap: .8rem;
 }
 
+[attend_pro_app_qr_actions] {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: .75rem;
+	width: 100%;
+}
+
+[attend_pro_app] button {
+	max-width: 100%;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	line-height: 1.25;
+}
+
 [attend_pro_app_qr] {
-	width: min(86vw, 440px);
-	height: min(86vw, 440px);
+	width: min(100%, 440px);
+	height: auto;
+	aspect-ratio: 1;
 	align-self: center;
 	background: white;
 	border-radius: 20px;
@@ -63,8 +143,12 @@
 
 [attend_pro_app_qr_raw], [attend_pro_app_qr_input] {
 	min-height: 7rem;
-	background: white;
+	width: 100%;
+	max-width: 100%;
+	background: var(--ap-field);
+	color: var(--ap-ink);
 	border-radius: 14px;
+	overflow-wrap: anywhere;
 }
 
 [attend_pro_app_camera] {
@@ -78,9 +162,12 @@
 [attend_pro_app_network] {
 	font-size: .85rem;
 	opacity: .9;
+	white-space: normal;
 }
 
 @media (max-width: 540px) {
 	[attend_pro_app_main] { padding: .75rem; }
 	[attend_pro_app] [mol_page_title] { font-size: 1.05rem; }
+	[attend_pro_app_qr_actions] { grid-template-columns: 1fr; }
+	[attend_pro_app] [mol_page_head] { align-items: flex-start; }
 }

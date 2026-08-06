@@ -15,6 +15,10 @@ namespace $.$$ {
 
 	export class $attend_pro_app extends $.$attend_pro_app {
 
+		qr_rotation_timer: ReturnType< typeof setTimeout > | null = null
+		qr_rotation_generation = 0
+		sync_promise: Promise< void > | null = null
+
 		@ $mol_mem
 		store() {
 			return new this.$.$attend_pro_store
@@ -27,6 +31,31 @@ namespace $.$$ {
 
 		api_base() {
 			return location.port === '9080' ? 'http://localhost:8000/api/v1' : '/api/v1'
+		}
+
+		@ $mol_mem
+		theme_dark( next?: boolean ) {
+			if( next !== undefined ) {
+				this.$.$mol_state_local.value( 'attendpro.theme.dark', next )
+				return next
+			}
+			const stored = this.$.$mol_state_local.value( 'attendpro.theme.dark' )
+			if( typeof stored === 'boolean' ) return stored
+			return !this.$.$mol_lights()
+		}
+
+		theme_name() {
+			return this.theme_dark() ? '$mol_theme_dark' : '$mol_theme_light'
+		}
+
+		theme_button_title() {
+			return this.theme_dark() ? '☀ Светлая тема' : '☾ Тёмная тема'
+		}
+
+		theme_toggle( event?: Event ) {
+			if( event === undefined ) return null
+			this.theme_dark( !this.theme_dark() )
+			return null
 		}
 
 		async api_async< Result >( path: string, init: RequestInit = {} ): Promise< Result > {
@@ -136,10 +165,10 @@ namespace $.$$ {
 		@ $mol_mem
 		permit( next?: $attend_pro_permit_bundle | null ): $attend_pro_permit_bundle | null {
 			if( next !== undefined ) return next
-			const lesson = this.current()
-			const device = this.device()
-			if( !lesson || !device || this.user()?.role !== 'teacher' ) return null
-			return $mol_wire_sync( this as $attend_pro_app ).permit_load( lesson, device )
+			// Loading an async value from this reactive getter leaked $mol's suspense
+			// object into the UI as "[object ...permit_load...]". Permits are now loaded
+			// explicitly by the async login/QR flows and cached through this setter.
+			return null
 		}
 
 		async permit_load( lesson: $attend_pro_lesson, device: $attend_pro_device, force = false ) {
@@ -158,7 +187,9 @@ namespace $.$$ {
 		}
 
 		app_tools() {
-			return this.user() ? [ this.Network(), this.Logout() ] : [ this.Network() ]
+			return this.user()
+				? [ this.Network(), this.Theme_toggle(), this.Logout() ]
+				: [ this.Network(), this.Theme_toggle() ]
 		}
 
 		rows() {
@@ -172,16 +203,17 @@ namespace $.$$ {
 				base.push( this.current() ? this.Lesson() : this.No_lesson() )
 				return user.role === 'teacher' ? [ ...base, ...this.teacher_rows() ] : [ ...base, ...this.student_rows() ]
 			} catch( error: any ) {
-				if( error instanceof Promise ) throw error
+				if( this.$.$mol_promise_like( error ) ) throw error
 				this.error_text( error?.message ?? String( error ) )
 				return [ this.Intro(), this.Error() ]
 			}
 		}
 
 		teacher_rows() {
-			const rows: $mol_view[] = [ this.Teacher_explain(), this.Start_now() ]
-			if( this.current() ) rows.push( this.Entry_qr(), this.Exit_qr() )
-			if( this.qr_uri() ) rows.push( this.Qr(), this.Qr_hint(), this.Qr_raw() )
+			const rows: $mol_view[] = [ this.Teacher_explain(), this.Test_lesson_explain(), this.Start_now() ]
+			if( this.action_status() ) rows.push( this.Action_status() )
+			if( this.current() ) rows.push( this.Qr_kind_explain(), this.Qr_actions() )
+			if( this.qr_uri() ) rows.push( this.Stop_qr(), this.Qr(), this.Qr_hint(), this.Qr_raw() )
 			return rows
 		}
 
@@ -252,6 +284,7 @@ namespace $.$$ {
 		}
 
 		async logout_flow_async() {
+			this.qr_rotation_stop()
 			await this.logout_async()
 			this.user( null )
 			this.device( null )
@@ -291,23 +324,32 @@ namespace $.$$ {
 			return `${ lesson.kind } · ${ lesson.group_name } · ${ lesson.room } · ${ start }–${ end }`
 		}
 
+		start_now_title() {
+			return this.current()?.state === 'current'
+				? 'Перезапустить тестовую пару на 90 минут'
+				: 'Запустить тестовую пару на 90 минут'
+		}
+
 		start_now( event?: Event ) {
 			if( event === undefined ) return null
+			this.action_status( 'Перезапускаю тестовую пару и получаю новое подписанное разрешение…' )
 			void this.start_now_flow_async().catch( error => {
-				this.error_text( error?.message ?? String( error ) )
+				const message = error?.message ?? String( error )
+				this.action_status( `Не удалось перезапустить пару: ${ message }` )
+				this.error_text( message )
 			} )
 			return null
 		}
 
 		async start_now_flow_async() {
+			this.qr_rotation_stop()
 			const lesson = await this.start_now_async()
 			this.current( lesson )
 			const device = this.device()!
 			const permit = await this.permit_load( lesson, device, true )
 			this.permit( permit )
-			this.qr_uri( '' )
-			this.qr_raw( '' )
-			this.qr_hint( 'Тестовая пара запущена; новое разрешение сохранено в IndexedDB.' )
+			this.action_status( 'Тестовая пара перезапущена на 90 минут. Старый QR остановлен, новое разрешение сохранено в IndexedDB.' )
+			this.error_text( '' )
 		}
 
 		async start_now_async() {
@@ -321,7 +363,7 @@ namespace $.$$ {
 
 		entry_qr( event?: Event ) {
 			if( event === undefined ) return null
-			void this.make_qr_async( 'ENTRY' ).catch( error => {
+			void this.qr_rotation_start_async( 'ENTRY' ).catch( error => {
 				this.error_text( error?.message ?? String( error ) )
 			} )
 			return null
@@ -329,13 +371,85 @@ namespace $.$$ {
 
 		exit_qr( event?: Event ) {
 			if( event === undefined ) return null
-			void this.make_qr_async( 'EXIT' ).catch( error => {
+			void this.qr_rotation_start_async( 'EXIT' ).catch( error => {
 				this.error_text( error?.message ?? String( error ) )
 			} )
 			return null
 		}
 
-		async make_qr_async( kind: 'ENTRY' | 'EXIT' ) {
+		@ $mol_mem
+		active_qr_kind( next?: 'ENTRY' | 'EXIT' | null ): 'ENTRY' | 'EXIT' | null {
+			if( next !== undefined ) return next
+			return null
+		}
+
+		@ $mol_mem
+		qr_rotates_at( next?: number ) {
+			if( next !== undefined ) return next
+			return 0
+		}
+
+		entry_qr_title() {
+			return this.active_qr_kind() === 'ENTRY' ? 'Обновить QR «Вход» сейчас' : 'Показывать QR «Вход»'
+		}
+
+		exit_qr_title() {
+			return this.active_qr_kind() === 'EXIT' ? 'Обновить QR «Выход» сейчас' : 'Показывать QR «Выход»'
+		}
+
+		stop_qr( event?: Event ) {
+			if( event === undefined ) return null
+			this.qr_rotation_stop()
+			this.action_status( 'Автоматический показ QR остановлен.' )
+			return null
+		}
+
+		qr_rotation_stop() {
+			if( this.qr_rotation_timer !== null ) clearTimeout( this.qr_rotation_timer )
+			this.qr_rotation_timer = null
+			this.qr_rotation_generation++
+			this.active_qr_kind( null )
+			this.qr_rotates_at( 0 )
+			this.qr_uri( '' )
+			this.qr_raw( '' )
+		}
+
+		async qr_rotation_start_async( kind: 'ENTRY' | 'EXIT' ) {
+			if( this.qr_rotation_timer !== null ) clearTimeout( this.qr_rotation_timer )
+			this.qr_rotation_timer = null
+			const generation = ++this.qr_rotation_generation
+			this.active_qr_kind( kind )
+			this.error_text( '' )
+			await this.make_qr_async( kind, generation )
+			this.qr_rotation_schedule( kind, generation )
+		}
+
+		qr_rotation_schedule( kind: 'ENTRY' | 'EXIT', generation: number ) {
+			if( generation !== this.qr_rotation_generation ) return
+			// Each challenge is valid for 30 seconds. Rotating at 25 seconds leaves a
+			// five-second overlap for a camera that started reading the previous frame.
+			const delay = 25_000
+			this.qr_rotates_at( Date.now() + delay )
+			this.qr_rotation_timer = setTimeout( () => {
+				if( generation !== this.qr_rotation_generation ) return
+				void this.make_qr_async( kind, generation ).then( () => {
+					this.qr_rotation_schedule( kind, generation )
+				} ).catch( error => {
+					this.qr_rotation_stop()
+					this.error_text( `Автообновление QR остановлено: ${ error?.message ?? String( error ) }` )
+				} )
+			}, delay )
+		}
+
+		qr_hint() {
+			const kind = this.active_qr_kind()
+			if( !kind ) return ''
+			const now = this.$.$mol_state_time.now( 1000 )
+			const seconds = Math.max( 0, Math.ceil( ( this.qr_rotates_at() - now ) / 1000 ) )
+			return `${ kind === 'ENTRY' ? 'ВХОД' : 'ВЫХОД' }: каждый QR действует 30 секунд и автоматически заменяется новым через ${ seconds } с. Обновление подписывается локально${ navigator.onLine ? '' : ' и работает офлайн' }.`
+		}
+
+		async make_qr_async( kind: 'ENTRY' | 'EXIT', generation = this.qr_rotation_generation ) {
 			const lesson = this.current()
 			const device = this.device()
 			let bundle = this.permit()
@@ -354,7 +468,7 @@ namespace $.$$ {
 				kind,
 				nonce: this.$.$attend_pro_crypto_b64url( crypto.getRandomValues( new Uint8Array( 32 ) ) ),
 				issued_at: issued.toISOString(),
-				expires_at: new Date( issued.getTime() + 90_000 ).toISOString(),
+				expires_at: new Date( issued.getTime() + 30_000 ).toISOString(),
 			}
 			const challenge: $attend_pro_crypto_envelope = {
 				payload: challenge_payload,
@@ -376,9 +490,9 @@ namespace $.$$ {
 				[{ data: raw, mode: 'byte' }],
 				{ errorCorrectionLevel: 'L', width: 760, margin: 2 },
 			)
+			if( generation !== this.qr_rotation_generation || this.active_qr_kind() !== kind ) return
 			this.qr_raw( raw )
 			this.qr_uri( uri )
-			this.qr_hint( `${ kind === 'ENTRY' ? 'Вход' : 'Выход' }: QR действует 90 секунд. Он подписан локально и создан ${ navigator.onLine ? 'при доступной сети' : 'полностью офлайн' }.` )
 		}
 
 		@ $mol_mem
@@ -416,8 +530,7 @@ namespace $.$$ {
 					if( result?.data ) {
 						this.scan_active( false )
 						this.qr_input( result.data )
-						this.scan_status( 'QR найден. Проверяю подписи и создаю локальную отметку…' )
-						void this.accept_qr_async( result.data ).catch( error => this.scan_status( `QR отклонён: ${ error.message }` ) )
+						this.claim_submit( result.data )
 						return
 					}
 				}
@@ -429,10 +542,33 @@ namespace $.$$ {
 
 		qr_accept( event?: Event ) {
 			if( event === undefined ) return null
-			void this.accept_qr_async( this.qr_input() ).catch( error => {
-				this.scan_status( `QR отклонён: ${ error?.message ?? String( error ) }` )
-			} )
+			this.claim_submit( this.qr_input() )
 			return null
+		}
+
+		@ $mol_mem
+		claim_busy( next?: boolean ) {
+			if( next !== undefined ) return next
+			return false
+		}
+
+		accept_qr_enabled() {
+			return !this.claim_busy()
+		}
+
+		accept_qr_title() {
+			return this.claim_busy() ? 'Проверяю подписи и сохраняю…' : 'Проверить и подписать вставленный QR'
+		}
+
+		claim_submit( raw: string ) {
+			if( this.claim_busy() ) return
+			this.claim_busy( true )
+			this.scan_status( 'Проверяю всю цепочку подписей и сохраняю отметку на устройстве…' )
+			void this.accept_qr_async( raw ).catch( error => {
+				this.scan_status( `QR отклонён: ${ error?.message ?? String( error ) }` )
+			} ).finally( () => {
+				this.claim_busy( false )
+			} )
 		}
 
 		async verified_portal_envelope( envelope: $attend_pro_crypto_envelope, trust: TrustAnchor ) {
@@ -477,7 +613,7 @@ namespace $.$$ {
 			const credential_from_ms = Date.parse( qr.teacher_credential.payload.issued_at )
 			const credential_to_ms = Date.parse( qr.teacher_credential.payload.expires_at )
 			if( ![ issued_ms, expires_ms, permit_from_ms, permit_to_ms, credential_from_ms, credential_to_ms ].every( Number.isFinite ) ) throw new Error( 'В QR есть некорректная временная метка' )
-			if( expires_ms <= issued_ms || expires_ms - issued_ms > 210_000 ) throw new Error( 'Некорректный срок жизни QR' )
+			if( expires_ms <= issued_ms || expires_ms - issued_ms > 30_000 ) throw new Error( 'Некорректный срок жизни QR' )
 			if( captured_ms < issued_ms - skew_ms ) throw new Error( 'Часы преподавателя слишком далеко впереди' )
 			if( captured_ms > expires_ms + skew_ms ) throw new Error( 'QR уже истёк' )
 			if( captured_ms < permit_from_ms - skew_ms || captured_ms > permit_to_ms + skew_ms ) throw new Error( 'Разрешение пары сейчас не действует' )
@@ -512,20 +648,33 @@ namespace $.$$ {
 				claim,
 				replica_refs: [],
 			}
-			try {
-				const replica_ref = this.giper().publish( proof )
-				proof.replica_refs = [ replica_ref ]
-			} catch( error: any ) {
-				// The authoritative claim must remain available even if the secondary replica fails.
-				this.$.$mol_log3_warn({
-					place: this.giper(),
-					message: 'Giper evidence replica is temporarily unavailable',
-					hint: error?.message ?? String( error ),
-				})
-			}
 			await this.store().put( 'Pending', claim_payload.claim_id, proof )
-			this.pending_count( this.pending_count() + 1 )
+			this.pending_count( ( await this.store().pending_entries() ).length )
 			this.scan_status( `Подписи проверены. Отметка ${ challenge.kind } сохранена локально${ navigator.onLine ? ' и готова к отправке' : '; отправится после появления сети' }.` )
+			// Portal synchronization is deliberately outside the capture transaction.
+			// The student receives a responsive, durable local result first; network
+			// delivery starts when the UI is idle.
+			this.claim_followup_schedule( claim_payload.claim_id )
+		}
+
+		claim_followup_schedule( claim_id: string ) {
+			new this.$.$mol_after_work( 1500, () => {
+				void this.claim_followup_async( claim_id ).catch( error => {
+					this.$.$mol_log3_warn({
+						place: this,
+						message: 'Deferred claim synchronization failed',
+						hint: error?.message ?? String( error ),
+					})
+				} )
+			} )
+		}
+
+		async claim_followup_async( claim_id: string ) {
+			if( !await this.store().get( 'Pending', claim_id ) ) return
+			// Do not execute Giper Land signing on the browser main thread. On mobile
+			// devices its synchronous cryptographic pipeline can block rendering for
+			// tens of seconds. The proof remains self-contained in IndexedDB and on the
+			// portal; Giper publication will be re-enabled from a dedicated Web Worker.
 			if( navigator.onLine ) await this.sync_async()
 		}
 
@@ -557,6 +706,17 @@ namespace $.$$ {
 		}
 
 		async sync_async() {
+			if( this.sync_promise ) return await this.sync_promise
+			const running = this.sync_run_async()
+			this.sync_promise = running
+			try {
+				await running
+			} finally {
+				if( this.sync_promise === running ) this.sync_promise = null
+			}
+		}
+
+		async sync_run_async() {
 			const pending = await this.store().pending_entries()
 			if( !pending.length ) return
 			const trust = await this.trust_load()

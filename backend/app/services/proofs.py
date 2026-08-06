@@ -183,7 +183,7 @@ async def validate_claim(
         raise ProofRejected("INVALID_TIME", str(exc)) from exc
     skew = timedelta(seconds=settings.clock_skew_seconds)
     if challenge_expires_at <= challenge_issued_at or challenge_expires_at - challenge_issued_at > timedelta(
-        seconds=settings.qr_ttl_seconds + settings.clock_skew_seconds
+        seconds=settings.qr_ttl_seconds
     ):
         raise ProofRejected("INVALID_QR_LIFETIME", "QR challenge lifetime is invalid")
     if captured_at < challenge_issued_at - skew or captured_at > challenge_expires_at + skew:

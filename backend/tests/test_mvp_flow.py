@@ -34,7 +34,7 @@ async def enroll(client, label: str) -> tuple[ec.EllipticCurvePrivateKey, dict]:
     return key, response.json()
 
 
-async def signed_proof(client) -> tuple[dict, dict, ec.EllipticCurvePrivateKey]:
+async def signed_proof(client, ttl_seconds: int = 30) -> tuple[dict, dict, ec.EllipticCurvePrivateKey]:
     await login(client, "teacher@attend.test")
     teacher_key, teacher_credential = await enroll(client, "Teacher test browser")
     lesson = (await client.get("/api/v1/schedule/current")).json()
@@ -54,7 +54,7 @@ async def signed_proof(client) -> tuple[dict, dict, ec.EllipticCurvePrivateKey]:
         "kind": "ENTRY",
         "nonce": b64url_encode(os_random(32)),
         "issued_at": instant(now),
-        "expires_at": instant(now + timedelta(seconds=90)),
+        "expires_at": instant(now + timedelta(seconds=ttl_seconds)),
     }
     challenge = {
         "payload": challenge_payload,
@@ -166,6 +166,15 @@ async def test_tampered_claim_is_cryptographically_rejected(client):
     decision = response.json()["results"][0]["decision"]
     assert decision["payload"]["status"] == "REJECTED"
     assert decision["payload"]["reason_code"] == "INVALID_STUDENT_SIGNATURE"
+
+
+async def test_qr_lifetime_longer_than_thirty_seconds_is_rejected(client):
+    proof, _, _ = await signed_proof(client, ttl_seconds=31)
+    response = await client.post("/api/v1/claims/sync", json={"claims": [proof]})
+    assert response.status_code == 200
+    decision = response.json()["results"][0]["decision"]
+    assert decision["payload"]["status"] == "REJECTED"
+    assert decision["payload"]["reason_code"] == "INVALID_QR_LIFETIME"
 
 
 async def test_malformed_claim_identifier_is_rejected_without_database_error(client):
